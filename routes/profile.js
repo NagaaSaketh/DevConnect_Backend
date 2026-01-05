@@ -2,7 +2,18 @@ const express = require("express");
 const { userAuth } = require("../middlewares/auth");
 const { validateEditProfileData } = require("../utils/validator");
 const bcrypt = require("bcrypt");
+const cloudinary = require("cloudinary");
+const multer = require("multer");
 const profileRouter = express.Router();
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const storage = multer.diskStorage({});
+const upload = multer({ storage });
 
 // API route to get the profile
 profileRouter.get("/profile/view", userAuth, async (req, res) => {
@@ -17,27 +28,43 @@ profileRouter.get("/profile/view", userAuth, async (req, res) => {
 });
 
 // API route to edit your profile.
-profileRouter.put("/profile/edit", userAuth, async (req, res) => {
-  try {
-    if (!validateEditProfileData(req)) {
-      return res.status(400).json({ message: "Invalid edit request" });
+profileRouter.put(
+  "/profile/edit",
+  userAuth,
+  upload.single("photo"),
+  async (req, res) => {
+    try {
+      if (!validateEditProfileData(req)) {
+        return res.status(400).json({ message: "Invalid edit request" });
+      }
+      const loggedInUser = req.user;
+
+      if (req.file) {
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: "uploads",
+        });
+        loggedInUser.photoUrl = result.secure_url;
+      }
+      Object.keys(req.body).forEach((key) => {
+        if (key !== "photo") {
+          loggedInUser[key] = req.body[key];
+        }
+      });
+
+      await loggedInUser.save();
+
+      res.status(200).json({
+        message: "Profile updated successfully.",
+        data: loggedInUser,
+      });
+    } catch (err) {
+      res.status(500).json({
+        message: "Failed to edit profile",
+        error: err.message,
+      });
     }
-    const loggedInUser = req.user;
-    // console.log(loggedInUser);
-
-    Object.keys(req.body).forEach((key) => (loggedInUser[key] = req.body[key]));
-
-    await loggedInUser.save();
-
-    res
-      .status(200)
-      .json({ message: "Profile updated successfully.", data:loggedInUser});
-  } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Failed to edit profile", error: err.message });
   }
-});
+);
 
 profileRouter.put("/profile/password", userAuth, async (req, res) => {
   try {
@@ -51,7 +78,7 @@ profileRouter.put("/profile/password", userAuth, async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     user.password = hashedPassword;
     await user.save();
-    
+
     res.status(200).json({
       message: "Password updated successfully",
     });
