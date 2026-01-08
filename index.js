@@ -4,7 +4,6 @@ const cors = require("cors");
 require("dotenv").config();
 const app = express();
 const http = require("http");
-const DevUser = require("./models/devUser");
 const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
 app.use(
@@ -21,6 +20,7 @@ const profileRouter = require("./routes/profile");
 const requestRouter = require("./routes/request");
 const userRouter = require("./routes/user");
 const chatRouter = require("./routes/chat");
+const oauthRouter = require("./routes/oauth");
 const initialiseSocket = require("./utils/socket");
 
 app.use("/", authRouter);
@@ -28,6 +28,7 @@ app.use("/", profileRouter);
 app.use("/", requestRouter);
 app.use("/", userRouter);
 app.use("/", chatRouter);
+app.use("/", oauthRouter);
 
 const server = http.createServer(app);
 initialiseSocket(server);
