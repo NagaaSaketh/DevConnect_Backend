@@ -19,7 +19,7 @@ oauthRouter.get("/user/profile/github", verifyAccessToken, async (req, res) => {
         headers: {
           Authorization: `Bearer ${access_token}`,
         },
-      }
+      },
     );
     res.json({ user: githubUserDataResponse.data });
   } catch (err) {
@@ -49,7 +49,7 @@ oauthRouter.get("/auth/github/callback", async (req, res) => {
         client_secret: process.env.GITHUB_CLIENT_SECRET,
         code,
       },
-      { headers: { Accept: "application/json" } }
+      { headers: { Accept: "application/json" } },
     );
 
     const accessToken = tokenResponse.data.access_token;
@@ -68,7 +68,7 @@ oauthRouter.get("/auth/github/callback", async (req, res) => {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
-      }
+      },
     );
 
     const githubData = githubUserResponse.data;
@@ -87,7 +87,8 @@ oauthRouter.get("/auth/github/callback", async (req, res) => {
 
       res.cookie("token", token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: true,
+        sameSite: "none",
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
@@ -118,7 +119,8 @@ oauthRouter.get("/auth/github/callback", async (req, res) => {
 
       res.cookie("token", token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: true,
+        sameSite: "none",
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
@@ -140,7 +142,7 @@ oauthRouter.get("/user/profile/google", verifyAccessToken, async (req, res) => {
         headers: {
           Authorization: `Bearer ${access_token}`,
         },
-      }
+      },
     );
     res.json({ user: googleUserDataResponse.data });
   } catch (err) {
@@ -176,7 +178,7 @@ oauthRouter.get("/auth/google/callback", async (req, res) => {
         redirect_uri: process.env.GOOGLE_REDIRECT_URI,
         grant_type: "authorization_code",
       },
-      { headers: { "Content-Type": "application/json" } }
+      { headers: { "Content-Type": "application/json" } },
     );
 
     const accessToken = tokenResponse.data.access_token;
@@ -188,7 +190,7 @@ oauthRouter.get("/auth/google/callback", async (req, res) => {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
-      }
+      },
     );
 
     const googleData = googleUserResponse.data;

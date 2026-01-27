@@ -26,8 +26,12 @@ authRouter.post("/signup", async (req, res) => {
 
     // Add the token to cookie and send the response back to the user
     res.cookie("token", token, {
-      expires: new Date(Date.now() + 8 * 3600000),
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 8 * 60 * 60 * 1000,
     });
+
     res
       .status(201)
       .json({ message: "User added successfully", data: savedUser });
@@ -57,8 +61,12 @@ authRouter.post("/login", async (req, res) => {
 
       // Add the token to cookie and send the response back to the user
       res.cookie("token", token, {
-        expires: new Date(Date.now() + 8 * 3600000),
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       });
+
       res.status(200).json(user);
     } else {
       res.status(400).json("Invalid credentials");
