@@ -8,7 +8,7 @@ const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173","https://dev-connect-frontend-puce.vercel.app"],
     credentials: true,
   })
 );
