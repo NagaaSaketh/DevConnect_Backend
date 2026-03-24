@@ -10,20 +10,43 @@ const oauthRouter = express.Router();
 
 oauthRouter.use(cookieParser());
 
+// GitHub Profile
 oauthRouter.get("/user/profile/github", verifyAccessToken, async (req, res) => {
   try {
-    const { access_token } = req.cookies;
+    const { oauth_token } = req.cookies;
+
     const githubUserDataResponse = await axios.get(
       "https://api.github.com/user",
       {
         headers: {
-          Authorization: `Bearer ${access_token}`,
+          Authorization: `Bearer ${oauth_token}`,
         },
       },
     );
+
     res.json({ user: githubUserDataResponse.data });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch github profile" });
+  }
+});
+
+// Google Profile
+oauthRouter.get("/user/profile/google", verifyAccessToken, async (req, res) => {
+  try {
+    const { oauth_token } = req.cookies;
+
+    const googleUserDataResponse = await axios.get(
+      "https://www.googleapis.com/oauth2/v2/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${oauth_token}`,
+        },
+      },
+    );
+
+    res.json({ user: googleUserDataResponse.data });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch google profile" });
   }
 });
 
@@ -32,11 +55,13 @@ oauthRouter.get("/auth/github", (req, res) => {
     `https://github.com/login/oauth/authorize` +
     `?client_id=${process.env.GITHUB_CLIENT_ID}` +
     `&scope=read:user user:email`;
+
   res.redirect(githubAuthUrl);
 });
 
 oauthRouter.get("/auth/github/callback", async (req, res) => {
   const { code } = req.query;
+
   if (!code) {
     return res.status(400).send({ message: "Authorization code not provided" });
   }
@@ -54,14 +79,13 @@ oauthRouter.get("/auth/github/callback", async (req, res) => {
 
     const accessToken = tokenResponse.data.access_token;
 
-    // Fetch user data from GitHub
+    // Fetch GitHub user
     const githubUserResponse = await axios.get("https://api.github.com/user", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     });
 
-    // Fetch user email
     const githubEmailResponse = await axios.get(
       "https://api.github.com/user/emails",
       {
@@ -72,32 +96,21 @@ oauthRouter.get("/auth/github/callback", async (req, res) => {
     );
 
     const githubData = githubUserResponse.data;
+
     const primaryEmail =
       githubEmailResponse.data.find((email) => email.primary)?.email ||
       githubData.email;
 
-    // Check if user exists in database
     let user = await DevUser.findOne({ emailID: primaryEmail });
 
+    let jwtToken;
+
     if (user) {
-      // Existing user - log them in
-      const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
+      jwtToken = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
         expiresIn: "7d",
       });
-
-      res.cookie("token", token, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
-
-      return res.redirect(`${process.env.FRONTEND_URL}/`);
     } else {
-      // New user - create account
-
       const randomPassword = Math.random().toString(36).slice(-8);
-
       const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
       const newUser = new DevUser({
@@ -113,42 +126,35 @@ oauthRouter.get("/auth/github/callback", async (req, res) => {
 
       await newUser.save();
 
-      const token = jwt.sign({ _id: newUser._id }, process.env.JWT_SECRET, {
+      jwtToken = jwt.sign({ _id: newUser._id }, process.env.JWT_SECRET, {
         expiresIn: "7d",
       });
-
-      res.cookie("token", token, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
-
-      // Redirect new users to edit profile
-      return res.redirect(`${process.env.FRONTEND_URL}/profile`);
     }
+
+    res.cookie("token", jwtToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    res.cookie("oauth_token", accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.redirect(`${process.env.FRONTEND_URL}`);
   } catch (err) {
     console.error("GitHub OAuth error:", err);
     return res.redirect(`${process.env.FRONTEND_URL}/login?error=oauth_failed`);
   }
 });
 
-oauthRouter.get("/user/profile/google", verifyAccessToken, async (req, res) => {
-  try {
-    const { access_token } = req.cookies;
-    const googleUserDataResponse = await axios.get(
-      "https://www.googleapis.com/oauth2/v2/userinfo",
-      {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-        },
-      },
-    );
-    res.json({ user: googleUserDataResponse.data });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch google profile" });
-  }
-});
+/* =========================
+    GOOGLE OAUTH
+========================= */
 
 oauthRouter.get("/auth/google", (req, res) => {
   const googleAuthUrl =
@@ -159,11 +165,13 @@ oauthRouter.get("/auth/google", (req, res) => {
     `&scope=openid email profile` +
     `&access_type=offline` +
     `&prompt=consent`;
+
   res.redirect(googleAuthUrl);
 });
 
 oauthRouter.get("/auth/google/callback", async (req, res) => {
   const { code } = req.query;
+
   if (!code) {
     return res.status(400).send({ message: "Authorization code not provided" });
   }
@@ -183,7 +191,6 @@ oauthRouter.get("/auth/google/callback", async (req, res) => {
 
     const accessToken = tokenResponse.data.access_token;
 
-    // Fetch user data from Google
     const googleUserResponse = await axios.get(
       "https://www.googleapis.com/oauth2/v2/userinfo",
       {
@@ -196,24 +203,15 @@ oauthRouter.get("/auth/google/callback", async (req, res) => {
     const googleData = googleUserResponse.data;
     const primaryEmail = googleData.email;
 
-    // Check if user exists in database
     let user = await DevUser.findOne({ emailID: primaryEmail });
 
+    let jwtToken;
+
     if (user) {
-      // Existing user - log them in
-      const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
+      jwtToken = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
         expiresIn: "7d",
       });
-
-      res.cookie("token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
-
-      return res.redirect(`${process.env.FRONTEND_URL}/`);
     } else {
-      // New user - create account
       const randomPassword = Math.random().toString(36).slice(-8);
       const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
@@ -234,19 +232,26 @@ oauthRouter.get("/auth/google/callback", async (req, res) => {
 
       await newUser.save();
 
-      const token = jwt.sign({ _id: newUser._id }, process.env.JWT_SECRET, {
+      jwtToken = jwt.sign({ _id: newUser._id }, process.env.JWT_SECRET, {
         expiresIn: "7d",
       });
-
-      res.cookie("token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
-
-      // Redirect new users to edit profile
-      return res.redirect(`${process.env.FRONTEND_URL}/profile`);
     }
+
+    res.cookie("token", jwtToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    res.cookie("oauth_token", accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.redirect(`${process.env.FRONTEND_URL}`);
   } catch (err) {
     console.error("Google OAuth error:", err);
     return res.redirect(`${process.env.FRONTEND_URL}/login?error=oauth_failed`);
