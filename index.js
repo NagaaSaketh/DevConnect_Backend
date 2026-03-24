@@ -6,11 +6,22 @@ const app = express();
 const http = require("http");
 const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://dev-connect-collab.vercel.app",
+];
+
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
-  })
+  }),
 );
 app.use(express.json());
 app.use(cookieParser());
