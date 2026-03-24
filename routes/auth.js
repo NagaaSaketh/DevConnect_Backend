@@ -25,8 +25,19 @@ authRouter.post("/signup", async (req, res) => {
     const token = await jwt.sign({ _id: user._id }, process.env.JWT_SECRET);
 
     // Add the token to cookie and send the response back to the user
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+    });
+
     res.cookie("token", token, {
-      expires: new Date(Date.now() + 8 * 3600000),
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+      maxAge: 8 * 60 * 60 * 1000,
     });
     res
       .status(201)
@@ -56,8 +67,19 @@ authRouter.post("/login", async (req, res) => {
       const token = await jwt.sign({ _id: user._id }, process.env.JWT_SECRET);
 
       // Add the token to cookie and send the response back to the user
+      res.clearCookie("token", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: "/",
+      });
+
       res.cookie("token", token, {
-        expires: new Date(Date.now() + 8 * 3600000),
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: "/",
+        maxAge: 8 * 60 * 60 * 1000,
       });
       res.status(200).json(user);
     } else {
@@ -71,7 +93,12 @@ authRouter.post("/login", async (req, res) => {
 // API route for user logout
 
 authRouter.post("/logout", async (req, res) => {
-  res.cookie("token", null, { expires: new Date(Date.now()) });
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/",
+  });
   res.status(200).send("Logout successful!");
 });
 
