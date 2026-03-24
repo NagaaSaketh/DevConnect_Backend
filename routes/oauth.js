@@ -104,6 +104,7 @@ oauthRouter.get("/auth/github/callback", async (req, res) => {
     let user = await DevUser.findOne({ emailID: primaryEmail });
 
     let jwtToken;
+    let isNewUser = false;
 
     if (user) {
       jwtToken = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
@@ -125,6 +126,7 @@ oauthRouter.get("/auth/github/callback", async (req, res) => {
       });
 
       await newUser.save();
+      isNewUser = true;
 
       jwtToken = jwt.sign({ _id: newUser._id }, process.env.JWT_SECRET, {
         expiresIn: "7d",
@@ -145,7 +147,11 @@ oauthRouter.get("/auth/github/callback", async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    return res.redirect(`${process.env.FRONTEND_URL}`);
+    if (isNewUser) {
+      return res.redirect(`${process.env.FRONTEND_URL}/profile`);
+    } else {
+      return res.redirect(`${process.env.FRONTEND_URL}`);
+    }
   } catch (err) {
     console.error("GitHub OAuth error:", err);
     return res.redirect(`${process.env.FRONTEND_URL}/login?error=oauth_failed`);
@@ -206,6 +212,7 @@ oauthRouter.get("/auth/google/callback", async (req, res) => {
     let user = await DevUser.findOne({ emailID: primaryEmail });
 
     let jwtToken;
+    let isNewUser = false;
 
     if (user) {
       jwtToken = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
@@ -232,6 +239,8 @@ oauthRouter.get("/auth/google/callback", async (req, res) => {
 
       await newUser.save();
 
+      isNewUser = true;
+
       jwtToken = jwt.sign({ _id: newUser._id }, process.env.JWT_SECRET, {
         expiresIn: "7d",
       });
@@ -251,7 +260,11 @@ oauthRouter.get("/auth/google/callback", async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    return res.redirect(`${process.env.FRONTEND_URL}`);
+    if (isNewUser) {
+      return res.redirect(`${process.env.FRONTEND_URL}/profile`);
+    } else {
+      return res.redirect(`${process.env.FRONTEND_URL}`);
+    }
   } catch (err) {
     console.error("Google OAuth error:", err);
     return res.redirect(`${process.env.FRONTEND_URL}/login?error=oauth_failed`);
